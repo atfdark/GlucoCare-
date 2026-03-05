@@ -30,6 +30,7 @@ model User {
   prescriptionsGiven    Prescription[]   @relation("DoctorPrescriptions")
   reminders             Reminder[]       @relation("PatientReminders")
   remindersCreated      Reminder[]       @relation("DoctorReminders")
+  healthMetrics         HealthMetric[]
 
   doctorAssignments     DoctorPatientAssignment[] @relation("DoctorAssignments")
   patientAssignments    DoctorPatientAssignment[] @relation("PatientAssignments")
@@ -122,6 +123,20 @@ model Reminder {
 
   @@index([patientId, remindAt])
   @@index([doctorId, createdAt])
+}
+
+model HealthMetric {
+  id         String   @id @default(uuid())
+  patientId  String
+  weight     Float
+  systolic   Int
+  diastolic  Int
+  hba1c      Float
+  createdAt  DateTime @default(now())
+
+  patient    User     @relation(fields: [patientId], references: [id])
+
+  @@index([patientId, createdAt])
 }
 
 model AuditEvent {

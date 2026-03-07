@@ -139,19 +139,59 @@ function togglePassword(inputId, button) {
                 return;
             }
 
-            // Simulate registration
             var btn = e.target.querySelector('.btn-submit');
             btn.textContent = 'Creating account...';
             btn.disabled = true;
 
-            setTimeout(function() {
+            var body = {
+                fullName: fullName,
+                email: email,
+                phone: phone,
+                password: password,
+                role: role
+            };
+
+            if (role === 'doctor') {
+                body.medicalRegistrationNumber = document.getElementById('regNumber').value.trim();
+                body.specialization = document.getElementById('specialization').value;
+                body.clinicName = document.getElementById('clinicName').value.trim();
+            }
+
+            fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(function(response) { return response.json().then(function(data) { return { ok: response.ok, data: data }; }); })
+            .then(function(result) {
+                if (!result.ok) {
+                    errorText.textContent = result.data.error || 'Registration failed.';
+                    errorMessage.classList.add('show');
+                    btn.innerHTML = 'Create Account <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>';
+                    btn.disabled = false;
+                    return;
+                }
+
                 successMessage.classList.add('show');
                 btn.innerHTML = 'Create Account <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>';
                 btn.disabled = false;
 
-                // Redirect to login after success (demo)
+                // Store token and redirect
+                localStorage.setItem('token', result.data.token);
+                localStorage.setItem('user', JSON.stringify(result.data.user));
+
                 setTimeout(function() {
-                    window.location.href = 'login.html';
-                }, 2000);
-            }, 1500);
+                    if (result.data.user.role === 'doctor') {
+                        window.location.href = '/home/doctor/doctor-dashboard.html';
+                    } else {
+                        window.location.href = '/home/patient/patient.html';
+                    }
+                }, 1500);
+            })
+            .catch(function() {
+                errorText.textContent = 'Network error. Please try again.';
+                errorMessage.classList.add('show');
+                btn.innerHTML = 'Create Account <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>';
+                btn.disabled = false;
+            });
         }

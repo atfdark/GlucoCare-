@@ -1,293 +1,1488 @@
-// Navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const section = this.getAttribute('data-section');
-                
-                // Update active nav item
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Show corresponding section
-                document.querySelectorAll('.dashboard-section').forEach(sec => sec.classList.remove('active'));
-                document.getElementById(section).classList.add('active');
-                
-                // Update page title
-                const titles = {
-                    'overview': 'Dashboard Overview',
-                    'reports': 'Medical Reports',
-                    'profile': 'Personal Data',
-                    'doctors': 'My Doctors',
-                    'nutritionist': 'Nutrition & Diet',
-                    'records': 'Past Medical Records',
-                    'charts': 'Health Trends'
-                };
-                document.getElementById('page-title').textContent = titles[section] || 'Dashboard';
-            });
+var state = {
+    reports: [],
+    records: [],
+    doctors: [],
+    appointments: [],
+    threads: [],
+    selectedThreadId: null,
+    goals: [],
+    badges: [],
+    sessions: [],
+    auditLog: [],
+    exports: [],
+    shares: [],
+    charts: {},
+};
+
+var reportTypeMap = {
+    lab: 'Lab Report',
+    imaging: 'Imaging',
+    clinical: 'Clinical Note',
+    diabetes: 'Diabetes Report',
+};
+
+var recordTypeMap = {
+    diagnosis: 'Diagnosis',
+    treatment: 'Treatment',
+    medication: 'Other',
+    visit: 'Other',
+};
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function formatDate(value) {
+    if (!value) return '--';
+    var date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toLocaleDateString();
+}
+
+function formatDateInput(value) {
+    if (!value) return '';
+    return String(value).slice(0, 10);
+}
+
+function formatNameInitials(fullName) {
+    if (!fullName) return '--';
+    var parts = String(fullName).trim().split(/\s+/).slice(0, 2);
+    return parts.map(function(part) { return part[0] ? part[0].toUpperCase() : ''; }).join('');
+}
+
+function splitName(fullName) {
+    var clean = String(fullName || '').trim();
+    if (!clean) return { firstName: '', lastName: '' };
+    var parts = clean.split(/\s+/);
+    return {
+        firstName: parts[0],
+        lastName: parts.slice(1).join(' '),
+    };
+}
+
+function extractDoctorName(doctor) {
+    if (!doctor) return '--';
+    if (typeof doctor === 'object') return doctor.fullName || doctor.name || '--';
+    return String(doctor);
+}
+
+function getChartRangeDays() {
+    var periodEl = document.getElementById('chart-period');
+    if (!periodEl) return 30;
+    var label = (periodEl.value || '').toLowerCase();
+    if (label.indexOf('7') >= 0) return 7;
+    if (label.indexOf('30') >= 0) return 30;
+    if (label.indexOf('year') >= 0) return 365;
+    return 90;
+}
+
+function updateNav(section) {
+    document.querySelectorAll('.nav-item').forEach(function(nav) {
+        var isActive = nav.getAttribute('data-section') === section;
+        nav.classList.toggle('active', isActive);
+    });
+
+    document.querySelectorAll('.dashboard-section').forEach(function(sec) {
+        sec.classList.remove('active');
+    });
+
+    var activeSection = document.getElementById(section);
+    if (activeSection) {
+        activeSection.classList.add('active');
+    }
+
+    var titles = {
+        overview: 'Dashboard Overview',
+        reports: 'Medical Reports',
+        profile: 'Personal Data',
+        doctors: 'My Doctors',
+        nutritionist: 'Nutrition & Diet',
+        records: 'Past Medical Records',
+        charts: 'Health Trends',
+        messages: 'Care Team Messages',
+        safety: 'Emergency & Safety',
+        gamification: 'Goals & Rewards',
+        sharing: 'Data Export & Sharing',
+        privacy: 'Privacy & Security',
+    };
+
+    var titleEl = document.getElementById('page-title');
+    if (titleEl) titleEl.textContent = titles[section] || 'Dashboard';
+}
+
+function initNavigation() {
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            var section = this.getAttribute('data-section');
+            updateNav(section);
         });
+    });
+}
 
-        // Modal Functions
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
+function openModal(modalId) {
+    var modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
 
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-            document.body.style.overflow = 'auto';
-        }
+function closeModal(modalId) {
+    var modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
 
-        // Close modal on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                    document.body.style.overflow = 'auto';
-                }
-            });
-        });
-
-        // Form Submissions
-        function saveProfile(e) {
-            e.preventDefault();
-            // Add validation and save logic here
-            alert('Profile updated successfully!');
-            closeModal('profile-modal');
-        }
-
-        function bookAppointment(e) {
-            e.preventDefault();
-            alert('Appointment booked successfully! You will receive a confirmation email.');
-            closeModal('appointment-modal');
-        }
-
-        function saveDiet(e) {
-            e.preventDefault();
-            alert('Dietary preferences updated successfully!');
-            closeModal('diet-modal');
-        }
-
-        function addReport(e) {
-            e.preventDefault();
-            alert('Report added successfully!');
-            closeModal('report-modal');
-        }
-
-        function addRecord(e) {
-            e.preventDefault();
-            alert('Medical record added successfully!');
-            closeModal('record-modal');
-        }
-
-        // Filter Functions
-        function filterReports() {
-            const search = document.getElementById('report-search').value.toLowerCase();
-            const type = document.getElementById('report-type-filter').value;
-            const rows = document.querySelectorAll('#reports-table-body tr');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                const rowTypeCell = row.querySelector('td:nth-child(2)');
-                const rowType = rowTypeCell ? rowTypeCell.textContent.toLowerCase() : '';
-                
-                const matchesSearch = text.includes(search);
-                const matchesType = !type || rowType.includes(type);
-                
-                row.style.display = matchesSearch && matchesType ? '' : 'none';
-            });
-        }
-
-        function filterRecords() {
-            const search = document.getElementById('record-search').value.toLowerCase();
-            const type = document.getElementById('record-type-filter').value;
-            const records = document.querySelectorAll('.record-card');
-            
-            records.forEach(record => {
-                const text = record.textContent.toLowerCase();
-                const recordTypeEl = record.querySelector('.record-type');
-                const recordType = recordTypeEl ? recordTypeEl.textContent.toLowerCase() : '';
-                
-                const matchesSearch = text.includes(search);
-                const matchesType = !type || recordType.includes(type);
-                
-                record.style.display = matchesSearch && matchesType ? '' : 'none';
-            });
-        }
-
-        // Global Search
-        document.getElementById('global-search').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            if (searchTerm.length >= 2) {
-                // Could implement global search across all sections
-                console.log('Searching for:', searchTerm);
+function initModals() {
+    document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                document.body.style.overflow = 'auto';
             }
         });
+    });
+}
 
-        // Charts
-        const glucoseCtx = document.getElementById('glucoseChart').getContext('2d');
-        new Chart(glucoseCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
+function setText(selector, value) {
+    var el = document.querySelector(selector);
+    if (el) el.textContent = value;
+}
+
+function populateProfileView(user) {
+    if (!user) return;
+
+    setText('.user-info h3', user.fullName || 'Patient Name');
+    setText('.user-info p', 'Patient ID: ' + (user._id || '--'));
+    setText('.profile-name', user.fullName || 'Patient Name');
+    setText('.profile-id', 'Patient ID: ' + (user._id || '--'));
+
+    var initials = formatNameInitials(user.fullName);
+    setText('.user-avatar', initials);
+    setText('.profile-avatar-large', initials);
+
+    var profileMeta = document.querySelectorAll('.profile-meta .meta-item span');
+    if (profileMeta[0]) profileMeta[0].textContent = 'Member since ' + formatDate(user.createdAt);
+    if (profileMeta[1]) profileMeta[1].textContent = user.email || '--';
+    if (profileMeta[2]) profileMeta[2].textContent = user.phone || '--';
+
+    var emergencyNumber = document.querySelector('.emergency-number');
+    if (emergencyNumber) {
+        emergencyNumber.textContent = user.emergencyContact && user.emergencyContact.phone ? user.emergencyContact.phone : '--';
+    }
+
+    var medicalFields = document.querySelectorAll('#profile .card .form-grid .form-group > div');
+    if (medicalFields[0]) medicalFields[0].textContent = user.bloodType || '--';
+    if (medicalFields[1]) medicalFields[1].textContent = formatDate(user.dateOfBirth);
+
+    var allergiesContainer = medicalFields[2];
+    if (allergiesContainer) {
+        var allergies = Array.isArray(user.allergies) ? user.allergies : [];
+        if (allergies.length === 0) {
+            allergiesContainer.innerHTML = '<span class="status-badge normal">None</span>';
+        } else {
+            allergiesContainer.innerHTML = allergies.map(function(item) {
+                return '<span class="status-badge warning" style="margin-right: 8px;">' + escapeHtml(item) + '</span>';
+            }).join('');
+        }
+    }
+
+    var conditionsContainer = medicalFields[3];
+    if (conditionsContainer) {
+        var conditions = Array.isArray(user.chronicConditions) ? user.chronicConditions : [];
+        if (conditions.length === 0) {
+            conditionsContainer.innerHTML = '<span class="status-badge normal">None</span>';
+        } else {
+            conditionsContainer.innerHTML = conditions.map(function(item) {
+                return '<span class="status-badge warning" style="margin-right: 8px;">' + escapeHtml(item) + '</span>';
+            }).join('');
+        }
+    }
+}
+
+function populateProfileModal(user) {
+    if (!user) return;
+    var split = splitName(user.fullName);
+    var firstName = document.getElementById('first-name');
+    var lastName = document.getElementById('last-name');
+    var email = document.getElementById('email');
+    var phone = document.getElementById('phone');
+    var dob = document.getElementById('dob');
+    var emergencyName = document.getElementById('emergency-name');
+    var emergencyPhone = document.getElementById('emergency-phone');
+
+    if (firstName) firstName.value = split.firstName;
+    if (lastName) lastName.value = split.lastName;
+    if (email) {
+        email.value = user.email || '';
+        email.readOnly = true;
+    }
+    if (phone) phone.value = user.phone || '';
+    if (dob) dob.value = formatDateInput(user.dateOfBirth);
+    if (emergencyName) emergencyName.value = user.emergencyContact && user.emergencyContact.name ? user.emergencyContact.name : '';
+    if (emergencyPhone) emergencyPhone.value = user.emergencyContact && user.emergencyContact.phone ? user.emergencyContact.phone : '';
+}
+
+function renderReports() {
+    var tbody = document.getElementById('reports-table-body');
+    if (!tbody) return;
+
+    if (state.reports.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--gray-500);">No reports available.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = state.reports.map(function(report) {
+        var statusClass = String(report.status || '').toLowerCase().indexOf('complete') >= 0 ? 'normal' : 'warning';
+        return [
+            '<tr data-report-id="' + report._id + '">',
+            '<td>' + escapeHtml(report.reportName) + '</td>',
+            '<td>' + escapeHtml(report.type) + '</td>',
+            '<td>' + formatDate(report.date) + '</td>',
+            '<td>' + escapeHtml(extractDoctorName(report.doctor)) + '</td>',
+            '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(report.status || 'Pending') + '</span></td>',
+            '<td><button class="btn btn-outline btn-sm" onclick="deleteReport(' + Number(report._id) + ')">Delete</button></td>',
+            '</tr>',
+        ].join('');
+    }).join('');
+}
+
+function renderRecords() {
+    var list = document.getElementById('records-list');
+    if (!list) return;
+
+    if (state.records.length === 0) {
+        list.innerHTML = '<div class="empty-state">No medical records available.</div>';
+        return;
+    }
+
+    list.innerHTML = state.records.map(function(record) {
+        return [
+            '<div class="record-card card" data-record-id="' + record._id + '">',
+            '<div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start;">',
+            '<div>',
+            '<div style="font-weight:700; font-size:16px; margin-bottom:6px;">' + escapeHtml(record.title) + '</div>',
+            '<div class="record-type" style="color: var(--gray-500); margin-bottom:6px;">' + escapeHtml(record.type) + '</div>',
+            '<div style="color: var(--gray-500); font-size:14px;">' + formatDate(record.date) + '</div>',
+            '</div>',
+            '<span class="status-badge normal">Stored</span>',
+            '</div>',
+            '<div style="margin-top:12px; color: var(--gray-700);">' + escapeHtml(record.description || '--') + '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderDoctors() {
+    var grid = document.querySelector('.doctor-grid');
+    if (!grid) return;
+
+    if (state.doctors.length === 0) {
+        grid.innerHTML = '<div class="card"><div class="empty-state">No assigned doctors yet.</div></div>';
+        return;
+    }
+
+    grid.innerHTML = state.doctors.map(function(doctor) {
+        var online = Number(doctor.isLoggedIn || 0) === 1;
+        var onlineBadge = online
+            ? '<span class="status-badge normal" style="margin-top: 6px;">Online</span>'
+            : '<span class="status-badge warning" style="margin-top: 6px;">Offline</span>';
+        return [
+            '<div class="doctor-card">',
+            '<div class="doctor-header">',
+            '<div class="doctor-avatar"><i class="fas fa-user"></i></div>',
+            '<div>',
+            '<div class="doctor-name">' + escapeHtml(doctor.fullName || 'Doctor') + '</div>',
+            '<div class="doctor-specialty">' + escapeHtml(doctor.specialization || 'General Practitioner') + '</div>',
+            onlineBadge,
+            '</div>',
+            '</div>',
+            '<div class="doctor-details">',
+            '<div class="doctor-detail"><i class="fas fa-hospital"></i>' + escapeHtml(doctor.clinicName || '--') + '</div>',
+            '<div class="doctor-detail"><i class="fas fa-phone"></i>' + escapeHtml(doctor.phone || '--') + '</div>',
+            '<div class="doctor-detail"><i class="fas fa-envelope"></i>' + escapeHtml(doctor.email || '--') + '</div>',
+            '</div>',
+            '<div class="doctor-actions">',
+            '<button class="btn btn-primary btn-sm" onclick="scheduleWithDoctor(' + Number(doctor._id || doctor.id || 0) + ')"><i class="fas fa-calendar"></i>Schedule</button>',
+            '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+
+    populateDoctorSelect();
+}
+
+function renderAppointments() {
+    var body = document.querySelector('#doctors .data-table tbody');
+    if (!body) return;
+
+    if (state.appointments.length === 0) {
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--gray-500);">No appointments yet.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = state.appointments.map(function(appt) {
+        var doctorName = extractDoctorName(appt.doctor);
+        var specialization = appt.doctor && appt.doctor.specialization ? appt.doctor.specialization : '--';
+        var status = appt.status || 'Scheduled';
+        var statusClass = String(status).toLowerCase() === 'completed' ? 'normal' : 'warning';
+        return [
+            '<tr>',
+            '<td>' + formatDate(appt.date) + '</td>',
+            '<td>' + escapeHtml(doctorName) + '</td>',
+            '<td>' + escapeHtml(specialization) + '</td>',
+            '<td>' + escapeHtml(appt.reason || '--') + '</td>',
+            '<td><span class="status-badge ' + statusClass + '">' + escapeHtml(status) + '</span></td>',
+            '</tr>',
+        ].join('');
+    }).join('');
+}
+
+function populateDoctorSelect() {
+    var select = document.getElementById('appointment-doctor');
+    var messageSelect = document.getElementById('new-thread-doctor');
+    if (!select && !messageSelect) return;
+
+    var options = ['<option value="">Choose a doctor...</option>'];
+    state.doctors.forEach(function(doctor) {
+        options.push(
+            '<option value="' + Number(doctor._id) + '">' +
+            escapeHtml((doctor.fullName || 'Doctor') + ' - ' + (doctor.specialization || 'General Practitioner')) +
+            '</option>'
+        );
+    });
+    if (select) {
+        select.innerHTML = options.join('');
+    }
+    if (messageSelect) {
+        messageSelect.innerHTML = options.join('');
+    }
+}
+
+function updateOverviewSummary(dashboard) {
+    var statValues = document.querySelectorAll('.quick-stats .stat-value');
+    if (statValues[0]) statValues[0].textContent = dashboard.latestGlucose ? Number(dashboard.latestGlucose.value).toFixed(0) : '--';
+    if (statValues[1]) statValues[1].textContent = dashboard.latestMetric && dashboard.latestMetric.weight ? Number(dashboard.latestMetric.weight).toFixed(1) : '--';
+
+    if (statValues[2]) {
+        var bpText = '--';
+        if (dashboard.latestMetric && dashboard.latestMetric.systolic && dashboard.latestMetric.diastolic) {
+            bpText = Number(dashboard.latestMetric.systolic).toFixed(0) + '/' + Number(dashboard.latestMetric.diastolic).toFixed(0);
+        }
+        statValues[2].textContent = bpText;
+    }
+
+    if (statValues[3]) {
+        var upcomingCount = Array.isArray(dashboard.upcomingAppointments) ? dashboard.upcomingAppointments.length : 0;
+        statValues[3].textContent = String(upcomingCount);
+    }
+}
+
+function updateOverviewMetrics(glucoseReadings, healthMetrics, scoreData) {
+    var metricValues = document.querySelectorAll('.metrics-grid .metric-card .metric-value');
+    if (metricValues.length < 3) return;
+
+    var fasting = glucoseReadings.filter(function(r) { return r.type === 'fasting'; });
+    var postprandial = glucoseReadings.filter(function(r) { return r.type === 'postprandial'; });
+
+    var fastingAvg = fasting.length === 0 ? null : fasting.reduce(function(sum, r) { return sum + Number(r.value); }, 0) / fasting.length;
+    var ppAvg = postprandial.length === 0 ? null : postprandial.reduce(function(sum, r) { return sum + Number(r.value); }, 0) / postprandial.length;
+
+    var latestHba1c = healthMetrics.find(function(m) { return m.hba1c !== null && m.hba1c !== undefined && m.hba1c !== ''; });
+
+    metricValues[0].textContent = fastingAvg === null ? '--' : Number(fastingAvg).toFixed(1);
+    metricValues[1].textContent = ppAvg === null ? '--' : Number(ppAvg).toFixed(1);
+    metricValues[2].textContent = latestHba1c ? Number(latestHba1c.hba1c).toFixed(1) + '%' : '--';
+
+    var metricUnits = document.querySelectorAll('.metrics-grid .metric-card .metric-unit');
+    if (metricUnits[2] && latestHba1c) {
+        metricUnits[2].textContent = 'Last test: ' + formatDate(latestHba1c.recordedAt);
+    }
+
+    var progressBars = document.querySelectorAll('.metric-progress-bar');
+    if (progressBars[0] && scoreData && scoreData.components) progressBars[0].style.width = Math.max(0, Math.min(100, scoreData.components.glucose)) + '%';
+    if (progressBars[1] && scoreData && scoreData.components) progressBars[1].style.width = Math.max(0, Math.min(100, scoreData.components.glucose)) + '%';
+    if (progressBars[2] && scoreData) progressBars[2].style.width = Math.max(0, Math.min(100, scoreData.score)) + '%';
+}
+
+function initCharts() {
+    var glucoseCtx = document.getElementById('glucoseChart').getContext('2d');
+    state.charts.glucose = new Chart(glucoseCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'Fasting Glucose',
                     data: [],
                     borderColor: '#0D9488',
                     backgroundColor: 'rgba(13, 148, 136, 0.1)',
                     tension: 0.4,
-                    fill: true
-                }, {
+                    fill: true,
+                },
+                {
                     label: 'Postprandial',
                     data: [],
                     borderColor: '#F59E0B',
                     backgroundColor: 'rgba(245, 158, 11, 0.1)',
                     tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
+                    fill: true,
                 },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        min: 60,
-                        max: 180
-                    }
-                }
-            }
-        });
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 60,
+                    max: 240,
+                },
+            },
+        },
+    });
 
-        const weightCtx = document.getElementById('weightChart').getContext('2d');
-        new Chart(weightCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
+    var weightCtx = document.getElementById('weightChart').getContext('2d');
+    state.charts.weight = new Chart(weightCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'Weight (kg)',
                     data: [],
                     borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
+                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                    tension: 0.35,
+                    fill: true,
                 },
-                scales: {
-                    y: {
-                        min: 70,
-                        max: 75
-                    }
-                }
-            }
-        });
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        },
+    });
 
-        // Health Trends Charts
-        const trendsGlucoseCtx = document.getElementById('trendsGlucoseChart').getContext('2d');
-        new Chart(trendsGlucoseCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
+    var trendsGlucoseCtx = document.getElementById('trendsGlucoseChart').getContext('2d');
+    state.charts.trendsGlucose = new Chart(trendsGlucoseCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'Average Glucose',
                     data: [],
                     borderColor: '#0D9488',
                     backgroundColor: 'rgba(13, 148, 136, 0.1)',
                     tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        },
+    });
 
-        const trendsWeightCtx = document.getElementById('trendsWeightChart').getContext('2d');
-        new Chart(trendsWeightCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
+    var trendsWeightCtx = document.getElementById('trendsWeightChart').getContext('2d');
+    state.charts.trendsWeight = new Chart(trendsWeightCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'Weight',
                     data: [],
                     borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
+                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                    tension: 0.35,
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        },
+    });
 
-        const trendsBPCtx = document.getElementById('trendsBPChart').getContext('2d');
-        new Chart(trendsBPCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
+    var trendsBPCtx = document.getElementById('trendsBPChart').getContext('2d');
+    state.charts.trendsBP = new Chart(trendsBPCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'Systolic',
                     data: [],
                     borderColor: '#EF4444',
-                    tension: 0.4
-                }, {
+                    tension: 0.35,
+                },
+                {
                     label: 'Diastolic',
                     data: [],
                     borderColor: '#10B981',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
+                    tension: 0.35,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+        },
+    });
 
-        const trendsHbA1cCtx = document.getElementById('trendsHbA1cChart').getContext('2d');
-        new Chart(trendsHbA1cCtx, {
-            type: 'bar',
-            data: {
-                labels: [],
-                datasets: [{
+    var trendsHbA1cCtx = document.getElementById('trendsHbA1cChart').getContext('2d');
+    state.charts.trendsHba1c = new Chart(trendsHbA1cCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
                     label: 'HbA1c %',
                     data: [],
-                    backgroundColor: [
-                        'rgba(239, 68, 68, 0.7)',
-                        'rgba(245, 158, 11, 0.7)',
-                        'rgba(245, 158, 11, 0.7)',
-                        'rgba(16, 185, 129, 0.7)',
-                        'rgba(16, 185, 129, 0.7)',
-                        'rgba(16, 185, 129, 0.7)'
-                    ],
-                    borderRadius: 8
-                }]
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderRadius: 8,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 4,
+                    max: 12,
+                },
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        min: 5,
-                        max: 8
-                    }
-                }
-            }
+        },
+    });
+}
+
+function updateOverviewCharts(glucoseReadings, healthMetrics) {
+    var byDate = {};
+    glucoseReadings.forEach(function(reading) {
+        var key = String(reading.recordedAt || '').slice(0, 10);
+        if (!byDate[key]) byDate[key] = { fasting: [], postprandial: [] };
+        if (reading.type === 'fasting') byDate[key].fasting.push(Number(reading.value));
+        if (reading.type === 'postprandial') byDate[key].postprandial.push(Number(reading.value));
+    });
+
+    var labels = Object.keys(byDate).sort();
+    var fastingSeries = labels.map(function(key) {
+        var arr = byDate[key].fasting;
+        if (arr.length === 0) return null;
+        return Number((arr.reduce(function(a, b) { return a + b; }, 0) / arr.length).toFixed(2));
+    });
+    var ppSeries = labels.map(function(key) {
+        var arr = byDate[key].postprandial;
+        if (arr.length === 0) return null;
+        return Number((arr.reduce(function(a, b) { return a + b; }, 0) / arr.length).toFixed(2));
+    });
+
+    state.charts.glucose.data.labels = labels;
+    state.charts.glucose.data.datasets[0].data = fastingSeries;
+    state.charts.glucose.data.datasets[1].data = ppSeries;
+    state.charts.glucose.update();
+
+    var metricLabels = healthMetrics.map(function(item) { return String(item.recordedAt || '').slice(0, 10); }).reverse();
+    var weightSeries = healthMetrics.map(function(item) { return item.weight ? Number(item.weight) : null; }).reverse();
+
+    state.charts.weight.data.labels = metricLabels;
+    state.charts.weight.data.datasets[0].data = weightSeries;
+    state.charts.weight.update();
+}
+
+function updateTrendCharts(trendPayload) {
+    var glucose = Array.isArray(trendPayload.glucose) ? trendPayload.glucose.slice().reverse() : [];
+    var metrics = Array.isArray(trendPayload.metrics) ? trendPayload.metrics.slice().reverse() : [];
+
+    state.charts.trendsGlucose.data.labels = glucose.map(function(item) { return String(item.recordedAt || '').slice(0, 10); });
+    state.charts.trendsGlucose.data.datasets[0].data = glucose.map(function(item) { return Number(item.value); });
+    state.charts.trendsGlucose.update();
+
+    state.charts.trendsWeight.data.labels = metrics.map(function(item) { return String(item.recordedAt || '').slice(0, 10); });
+    state.charts.trendsWeight.data.datasets[0].data = metrics.map(function(item) { return item.weight ? Number(item.weight) : null; });
+    state.charts.trendsWeight.update();
+
+    state.charts.trendsBP.data.labels = metrics.map(function(item) { return String(item.recordedAt || '').slice(0, 10); });
+    state.charts.trendsBP.data.datasets[0].data = metrics.map(function(item) { return item.systolic ? Number(item.systolic) : null; });
+    state.charts.trendsBP.data.datasets[1].data = metrics.map(function(item) { return item.diastolic ? Number(item.diastolic) : null; });
+    state.charts.trendsBP.update();
+
+    var hba1c = metrics.filter(function(item) {
+        return item.hba1c !== null && item.hba1c !== undefined && item.hba1c !== '';
+    });
+    state.charts.trendsHba1c.data.labels = hba1c.map(function(item) { return String(item.recordedAt || '').slice(0, 10); });
+    state.charts.trendsHba1c.data.datasets[0].data = hba1c.map(function(item) { return Number(item.hba1c); });
+    state.charts.trendsHba1c.update();
+}
+
+function updateNutritionSummary(summary) {
+    var values = document.querySelectorAll('.nutrition-grid .nutrition-value');
+    if (values[0]) values[0].textContent = summary.totalCalories + ' kcal';
+    if (values[1]) values[1].textContent = summary.totalCarbs + 'g';
+    if (values[2]) values[2].textContent = summary.activeMinutes + ' min';
+    if (values[3]) values[3].textContent = summary.mealCount;
+
+    var labels = document.querySelectorAll('.nutrition-grid .nutrition-label');
+    if (labels[2]) labels[2].textContent = 'Activity Minutes';
+    if (labels[3]) labels[3].textContent = 'Meals Logged';
+}
+
+function boolFromSelectValue(value) {
+    return String(value) === 'true';
+}
+
+function renderMessageThreads() {
+    var container = document.getElementById('message-threads-list');
+    if (!container) return;
+
+    if (state.threads.length === 0) {
+        container.innerHTML = '<div class="empty-state">No threads yet.</div>';
+        return;
+    }
+
+    container.innerHTML = state.threads.map(function(thread) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(thread.subject || 'No Subject') + '</div>',
+            '<div class="stack-item-meta">' + formatDate(thread.last_message_at || thread.createdAt) + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">Status: ' + escapeHtml(thread.status || 'open') + '</div>',
+            '<div class="stack-item-actions">',
+            '<button class="btn btn-outline btn-sm" onclick="openThread(' + Number(thread.id || thread._id) + ')">Open</button>',
+            '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderThreadMessages(messages) {
+    var container = document.getElementById('thread-messages');
+    if (!container) return;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+        container.innerHTML = '<div class="empty-state">No messages in this thread yet.</div>';
+        return;
+    }
+
+    container.innerHTML = messages.map(function(msg) {
+        var senderClass = msg.sender_role === 'patient' ? 'patient' : 'doctor';
+        return [
+            '<div class="message-bubble ' + senderClass + '">',
+            '<div>' + escapeHtml(msg.body || '') + '</div>',
+            '<div class="message-bubble-meta">' + escapeHtml(msg.sender_role || 'user') + ' • ' + formatDate(msg.sent_at || msg.createdAt) + '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderGoals() {
+    var container = document.getElementById('goals-list');
+    if (!container) return;
+
+    if (state.goals.length === 0) {
+        container.innerHTML = '<div class="empty-state">No goals yet.</div>';
+        return;
+    }
+
+    container.innerHTML = state.goals.map(function(goal) {
+        var status = goal.status || 'active';
+        var badgeClass = status === 'completed' ? 'normal' : 'warning';
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(goal.type) + '</div>',
+            '<span class="status-badge ' + badgeClass + '">' + escapeHtml(status) + '</span>',
+            '</div>',
+            '<div class="stack-item-meta">Target: ' + escapeHtml(goal.target_value || '--') + '</div>',
+            '<div class="stack-item-actions">',
+            '<button class="btn btn-outline btn-sm" onclick="markGoalCompleted(' + Number(goal.id || goal._id) + ')">Mark Completed</button>',
+            '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderBadges() {
+    var container = document.getElementById('badges-list');
+    if (!container) return;
+
+    if (state.badges.length === 0) {
+        container.innerHTML = '<div class="empty-state">No badges earned yet.</div>';
+        return;
+    }
+
+    container.innerHTML = state.badges.map(function(badge) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(badge.name || badge.code || 'Badge') + '</div>',
+            '<div class="stack-item-meta">Earned: ' + formatDate(badge.earned_at || badge.createdAt) + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">Code: ' + escapeHtml(badge.code || '--') + '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderExports() {
+    var container = document.getElementById('exports-list');
+    if (!container) return;
+
+    if (state.exports.length === 0) {
+        container.innerHTML = '<div class="empty-state">No exports created in this session.</div>';
+        return;
+    }
+
+    container.innerHTML = state.exports.map(function(item) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(item.format || 'Export') + '</div>',
+            '<div class="stack-item-meta">' + escapeHtml(item.status || 'ready') + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">File: ' + escapeHtml(item.file_url || '--') + '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderShares() {
+    var container = document.getElementById('shares-list');
+    if (!container) return;
+
+    if (state.shares.length === 0) {
+        container.innerHTML = '<div class="empty-state">No shares created in this session.</div>';
+        return;
+    }
+
+    container.innerHTML = state.shares.map(function(item) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(item.target_type || 'share') + '</div>',
+            '<div class="stack-item-meta">' + escapeHtml(item.target_value || '--') + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">Token: ' + escapeHtml(item.token || '--') + '</div>',
+            '<div class="stack-item-actions">',
+            '<button class="btn btn-outline btn-sm" onclick="revokeShare(' + Number(item.id || item._id) + ')">Revoke</button>',
+            '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderSessions() {
+    var container = document.getElementById('sessions-list');
+    if (!container) return;
+
+    if (state.sessions.length === 0) {
+        container.innerHTML = '<div class="empty-state">No sessions found.</div>';
+        return;
+    }
+
+    container.innerHTML = state.sessions.map(function(session) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">Session #' + Number(session.id || session._id) + '</div>',
+            '<div class="stack-item-meta">' + formatDate(session.createdAt) + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">Revoked: ' + escapeHtml(session.revoked_at || 'No') + '</div>',
+            '<div class="stack-item-actions">',
+            '<button class="btn btn-outline btn-sm" onclick="revokeSession(' + Number(session.id || session._id) + ')">Revoke</button>',
+            '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+function renderAuditLog() {
+    var container = document.getElementById('audit-log-list');
+    if (!container) return;
+
+    if (state.auditLog.length === 0) {
+        container.innerHTML = '<div class="empty-state">No audit entries available.</div>';
+        return;
+    }
+
+    container.innerHTML = state.auditLog.slice(0, 30).map(function(item) {
+        return [
+            '<div class="stack-item">',
+            '<div class="stack-item-header">',
+            '<div class="stack-item-title">' + escapeHtml(item.action || item.event || 'Access Event') + '</div>',
+            '<div class="stack-item-meta">' + formatDate(item.createdAt || item.timestamp) + '</div>',
+            '</div>',
+            '<div class="stack-item-meta">' + escapeHtml(item.resource || item.path || '--') + '</div>',
+            '</div>',
+        ].join('');
+    }).join('');
+}
+
+async function createMessageThread() {
+    var doctorId = document.getElementById('new-thread-doctor').value;
+    var subject = (document.getElementById('new-thread-subject').value || '').trim();
+    var body = (document.getElementById('new-thread-body').value || '').trim();
+    if (!subject || !body) {
+        alert('Subject and message are required.');
+        return;
+    }
+
+    var result = await API.post('/api/patient/messages/threads', {
+        doctorId: doctorId ? Number(doctorId) : null,
+        subject: subject,
+        body: body,
+    });
+
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to create thread.');
+        return;
+    }
+
+    document.getElementById('new-thread-subject').value = '';
+    document.getElementById('new-thread-body').value = '';
+    await loadMessages();
+}
+
+async function openThread(threadId) {
+    state.selectedThreadId = Number(threadId);
+    var result = await API.get('/api/patient/messages/threads/' + Number(threadId));
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to load thread.');
+        return;
+    }
+    renderThreadMessages(result.data.messages || []);
+}
+
+async function sendThreadReply() {
+    if (!state.selectedThreadId) {
+        alert('Select a thread first.');
+        return;
+    }
+
+    var body = (document.getElementById('thread-reply-body').value || '').trim();
+    if (!body) {
+        alert('Reply cannot be empty.');
+        return;
+    }
+
+    var result = await API.post('/api/patient/messages/threads/' + Number(state.selectedThreadId), { body: body });
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to send reply.');
+        return;
+    }
+
+    document.getElementById('thread-reply-body').value = '';
+    await openThread(state.selectedThreadId);
+    await loadMessages();
+}
+
+async function saveSafetyProfile() {
+    var result = await API.patch('/api/patient/safety/profile', {
+        emergencyContactName: document.getElementById('safety-contact-name').value || null,
+        emergencyContactPhone: document.getElementById('safety-contact-phone').value || null,
+        severeLowThreshold: Number(document.getElementById('safety-low-threshold').value || 60),
+        autoNotifyEnabled: boolFromSelectValue(document.getElementById('safety-auto-notify').value),
+    });
+
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to update safety profile.');
+        return;
+    }
+
+    alert('Safety profile updated.');
+}
+
+async function triggerSafetyEvent() {
+    var eventType = document.getElementById('safety-event-type').value;
+    var severity = document.getElementById('safety-event-severity').value;
+
+    var result = await API.post('/api/patient/safety/trigger', {
+        eventType: eventType,
+        severity: severity,
+        details: { source: 'patient-dashboard-manual-trigger' },
+    });
+
+    var info = document.getElementById('safety-event-result');
+    if (!result.ok) {
+        if (info) info.textContent = (result.data && result.data.error) || 'Failed to trigger event.';
+        return;
+    }
+    if (info) info.textContent = 'Safety event logged successfully at ' + formatDate(result.data.triggered_at || result.data.createdAt);
+}
+
+async function createGoal() {
+    var type = document.getElementById('goal-type').value;
+    var targetValue = Number(document.getElementById('goal-target').value || 0);
+    if (!type || targetValue <= 0) {
+        alert('Goal type and positive target are required.');
+        return;
+    }
+
+    var result = await API.post('/api/patient/gamification/goals', {
+        type: type,
+        targetValue: targetValue,
+        period: 'daily',
+        status: 'active',
+    });
+
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to create goal.');
+        return;
+    }
+
+    document.getElementById('goal-target').value = '';
+    await loadGamification();
+}
+
+async function markGoalCompleted(goalId) {
+    var result = await API.patch('/api/patient/gamification/goals/' + Number(goalId), { status: 'completed' });
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to update goal.');
+        return;
+    }
+    await loadGamification();
+}
+
+async function createExport() {
+    var format = document.getElementById('export-format').value;
+    var scope = document.getElementById('export-scope').value;
+
+    var result = await API.post('/api/patient/exports', { format: format, scope: { preset: scope } });
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to create export.');
+        return;
+    }
+
+    state.exports.unshift(result.data);
+    renderExports();
+}
+
+async function createShare() {
+    var targetType = document.getElementById('share-target-type').value;
+    var targetValue = (document.getElementById('share-target-value').value || '').trim();
+    if (!targetValue) {
+        alert('Target value is required.');
+        return;
+    }
+
+    var result = await API.post('/api/patient/shares', {
+        targetType: targetType,
+        targetValue: targetValue,
+        scope: { preset: 'summary' },
+    });
+
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to create share.');
+        return;
+    }
+
+    state.shares.unshift(result.data);
+    renderShares();
+}
+
+async function revokeShare(shareId) {
+    var result = await API.patch('/api/patient/shares/' + Number(shareId) + '/revoke', {});
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to revoke share.');
+        return;
+    }
+
+    state.shares = state.shares.filter(function(item) { return Number(item.id || item._id) !== Number(shareId); });
+    renderShares();
+}
+
+async function savePrivacySettings() {
+    var result = await API.patch('/api/patient/privacy/settings', {
+        shareWithDoctor: boolFromSelectValue(document.getElementById('privacy-share-doctor').value),
+        shareWithCaregiver: boolFromSelectValue(document.getElementById('privacy-share-caregiver').value),
+        researchOptIn: boolFromSelectValue(document.getElementById('privacy-research').value),
+        marketingOptIn: boolFromSelectValue(document.getElementById('privacy-marketing').value),
+    });
+
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to save privacy settings.');
+        return;
+    }
+
+    alert('Privacy settings saved.');
+}
+
+async function revokeSession(sessionId) {
+    var result = await API.delete('/api/patient/security/sessions/' + Number(sessionId));
+    if (!result.ok) {
+        alert((result.data && result.data.error) || 'Failed to revoke session.');
+        return;
+    }
+    await loadPrivacyAndSecurity();
+}
+
+function filterReports() {
+    var search = (document.getElementById('report-search').value || '').toLowerCase();
+    var type = (document.getElementById('report-type-filter').value || '').toLowerCase();
+    var rows = document.querySelectorAll('#reports-table-body tr');
+
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        var rowTypeCell = row.querySelector('td:nth-child(2)');
+        var rowType = rowTypeCell ? rowTypeCell.textContent.toLowerCase() : '';
+
+        var matchesSearch = text.indexOf(search) >= 0;
+        var matchesType = !type || rowType.indexOf(type) >= 0;
+        row.style.display = matchesSearch && matchesType ? '' : 'none';
+    });
+}
+
+function filterRecords() {
+    var search = (document.getElementById('record-search').value || '').toLowerCase();
+    var type = (document.getElementById('record-type-filter').value || '').toLowerCase();
+    var records = document.querySelectorAll('#records-list .record-card');
+
+    records.forEach(function(record) {
+        var text = record.textContent.toLowerCase();
+        var typeEl = record.querySelector('.record-type');
+        var rowType = typeEl ? typeEl.textContent.toLowerCase() : '';
+        var matchesSearch = text.indexOf(search) >= 0;
+        var matchesType = !type || rowType.indexOf(type) >= 0;
+        record.style.display = matchesSearch && matchesType ? '' : 'none';
+    });
+}
+
+function saveDiet(e) {
+    e.preventDefault();
+    alert('Dietary preferences saved locally. Clinical meal plans are provided by your care team.');
+    closeModal('diet-modal');
+}
+
+function scheduleWithDoctor(doctorId) {
+    var select = document.getElementById('appointment-doctor');
+    if (select && doctorId) {
+        select.value = String(Number(doctorId));
+    }
+    openModal('appointment-modal');
+}
+
+async function saveProfile(e) {
+    e.preventDefault();
+
+    var firstName = (document.getElementById('first-name').value || '').trim();
+    var lastName = (document.getElementById('last-name').value || '').trim();
+    var phone = (document.getElementById('phone').value || '').trim();
+    var dob = document.getElementById('dob').value || null;
+    var emergencyName = (document.getElementById('emergency-name').value || '').trim();
+    var emergencyPhone = (document.getElementById('emergency-phone').value || '').trim();
+
+    var fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+    if (!fullName) {
+        alert('Please enter a first and/or last name.');
+        return;
+    }
+
+    try {
+        var result = await API.put('/api/patient/profile', {
+            fullName: fullName,
+            phone: phone || null,
+            dateOfBirth: dob,
+            emergencyContact: {
+                name: emergencyName || null,
+                phone: emergencyPhone || null,
+            },
         });
 
-        // Set minimum date for appointment booking
-        document.getElementById('appointment-date').min = new Date().toISOString().split('T')[0];
+        if (!result.ok) {
+            alert((result.data && result.data.error) || 'Failed to update profile.');
+            return;
+        }
+
+        localStorage.setItem('user', JSON.stringify(result.data));
+        populateProfileView(result.data);
+        populateProfileModal(result.data);
+        alert('Profile updated successfully.');
+        closeModal('profile-modal');
+    } catch (err) {
+        alert('Network error while updating profile.');
+    }
+}
+
+async function bookAppointment(e) {
+    e.preventDefault();
+
+    var doctor = Number(document.getElementById('appointment-doctor').value);
+    var date = document.getElementById('appointment-date').value;
+    var time = document.getElementById('appointment-time').value;
+    var reason = (document.getElementById('appointment-reason').value || '').trim();
+
+    if (!doctor || !date || !time) {
+        alert('Doctor, date, and time are required.');
+        return;
+    }
+
+    try {
+        var result = await API.post('/api/patient/appointments', {
+            doctor: doctor,
+            date: date,
+            time: time,
+            reason: reason || null,
+        });
+
+        if (!result.ok) {
+            alert((result.data && result.data.error) || 'Failed to book appointment.');
+            return;
+        }
+
+        alert('Appointment booked successfully.');
+        closeModal('appointment-modal');
+        await loadAppointments();
+    } catch (err) {
+        alert('Network error while booking appointment.');
+    }
+}
+
+async function addReport(e) {
+    e.preventDefault();
+
+    var reportName = (document.getElementById('report-name').value || '').trim();
+    var reportTypeKey = document.getElementById('report-type').value || 'lab';
+    var reportType = reportTypeMap[reportTypeKey] || 'Lab Report';
+    var date = document.getElementById('report-date').value || new Date().toISOString().slice(0, 10);
+    var notes = (document.getElementById('report-notes').value || '').trim();
+
+    if (!reportName) {
+        alert('Report name is required.');
+        return;
+    }
+
+    try {
+        var result = await API.post('/api/patient/reports', {
+            reportName: reportName,
+            type: reportType,
+            date: date,
+            notes: notes,
+            status: 'Pending',
+        });
+
+        if (!result.ok) {
+            alert((result.data && result.data.error) || 'Failed to add report.');
+            return;
+        }
+
+        alert('Report added successfully.');
+        closeModal('report-modal');
+        document.getElementById('report-form').reset();
+        await loadReports();
+    } catch (err) {
+        alert('Network error while adding report.');
+    }
+}
+
+async function deleteReport(id) {
+    if (!confirm('Delete this report?')) return;
+    try {
+        var result = await API.request('/api/patient/reports/' + Number(id), { method: 'DELETE' });
+        if (!result.ok) {
+            alert((result.data && result.data.error) || 'Failed to delete report.');
+            return;
+        }
+        await loadReports();
+    } catch (err) {
+        alert('Network error while deleting report.');
+    }
+}
+
+async function addRecord(e) {
+    e.preventDefault();
+
+    var typeKey = document.getElementById('record-type').value || 'diagnosis';
+    var type = recordTypeMap[typeKey] || 'Other';
+    var date = document.getElementById('record-date').value || new Date().toISOString().slice(0, 10);
+    var title = (document.getElementById('record-title').value || '').trim();
+    var description = (document.getElementById('record-description').value || '').trim();
+
+    if (!title) {
+        alert('Record title is required.');
+        return;
+    }
+
+    try {
+        var result = await API.post('/api/patient/records', {
+            title: title,
+            type: type,
+            date: date,
+            description: description || null,
+        });
+
+        if (!result.ok) {
+            alert((result.data && result.data.error) || 'Failed to add record.');
+            return;
+        }
+
+        alert('Medical record added successfully.');
+        closeModal('record-modal');
+        document.getElementById('record-form').reset();
+        await loadRecords();
+    } catch (err) {
+        alert('Network error while adding record.');
+    }
+}
+
+async function loadProfile() {
+    var result = await API.get('/api/patient/profile');
+    if (!result.ok) return;
+    localStorage.setItem('user', JSON.stringify(result.data));
+    populateProfileView(result.data);
+    populateProfileModal(result.data);
+}
+
+async function loadDoctors() {
+    var result = await API.get('/api/patient/doctors');
+    state.doctors = result.ok && Array.isArray(result.data) ? result.data : [];
+    renderDoctors();
+}
+
+async function loadAppointments() {
+    var result = await API.get('/api/patient/appointments');
+    state.appointments = result.ok && Array.isArray(result.data) ? result.data : [];
+    renderAppointments();
+}
+
+async function loadReports() {
+    var result = await API.get('/api/patient/reports');
+    state.reports = result.ok && Array.isArray(result.data) ? result.data : [];
+    renderReports();
+    filterReports();
+}
+
+async function loadRecords() {
+    var result = await API.get('/api/patient/records');
+    state.records = result.ok && Array.isArray(result.data) ? result.data : [];
+    renderRecords();
+    filterRecords();
+}
+
+async function loadOverview() {
+    var dashboardRes = await API.get('/api/patient/dashboard');
+    var glucoseRes = await API.get('/api/patient/glucose?days=30');
+    var metricsRes = await API.get('/api/patient/health-metrics?days=30');
+    var scoreRes = await API.get('/api/patient/score/today');
+
+    var dashboard = dashboardRes.ok ? dashboardRes.data : {};
+    var glucose = glucoseRes.ok && Array.isArray(glucoseRes.data) ? glucoseRes.data : [];
+    var metrics = metricsRes.ok && Array.isArray(metricsRes.data) ? metricsRes.data : [];
+    var score = scoreRes.ok ? scoreRes.data : null;
+
+    updateOverviewSummary(dashboard);
+    updateOverviewMetrics(glucose, metrics, score);
+    updateOverviewCharts(glucose, metrics);
+}
+
+async function loadNutrition() {
+    var mealsRes = await API.get('/api/patient/meals?range=7d');
+    var activityRes = await API.get('/api/patient/activities?range=7d');
+
+    var meals = mealsRes.ok && Array.isArray(mealsRes.data) ? mealsRes.data : [];
+    var activities = activityRes.ok && Array.isArray(activityRes.data) ? activityRes.data : [];
+
+    var today = new Date().toISOString().slice(0, 10);
+    var todaysMeals = meals.filter(function(item) { return String(item.logged_at || '').slice(0, 10) === today; });
+    var todaysActivities = activities.filter(function(item) { return String(item.logged_at || '').slice(0, 10) === today; });
+
+    var totalCalories = todaysMeals.reduce(function(sum, item) { return sum + Number(item.calories || 0); }, 0);
+    var totalCarbs = todaysMeals.reduce(function(sum, item) { return sum + Number(item.carbs_g || 0); }, 0);
+    var activeMinutes = todaysActivities.reduce(function(sum, item) { return sum + Number(item.duration_min || 0); }, 0);
+
+    updateNutritionSummary({
+        totalCalories: Number(totalCalories.toFixed(0)),
+        totalCarbs: Number(totalCarbs.toFixed(0)),
+        activeMinutes: Number(activeMinutes.toFixed(0)),
+        mealCount: todaysMeals.length,
+    });
+
+    var goalMetrics = document.querySelectorAll('#nutritionist .metrics-grid .metric-card .metric-value');
+    if (goalMetrics[0]) goalMetrics[0].textContent = Number(totalCalories.toFixed(0));
+    if (goalMetrics[1]) goalMetrics[1].textContent = Number(totalCarbs.toFixed(0)) + 'g';
+    if (goalMetrics[2]) goalMetrics[2].textContent = '--';
+}
+
+async function loadTrends() {
+    var days = getChartRangeDays();
+    var range = days + 'd';
+    var trendRes = await API.get('/api/patient/biometrics/trends?range=' + encodeURIComponent(range));
+    if (trendRes.ok) {
+        updateTrendCharts(trendRes.data || {});
+    }
+}
+
+async function loadMessages() {
+    var result = await API.get('/api/patient/messages/threads');
+    state.threads = result.ok && Array.isArray(result.data) ? result.data : [];
+    renderMessageThreads();
+}
+
+async function loadSafety() {
+    var result = await API.get('/api/patient/safety/profile');
+    if (!result.ok || !result.data) return;
+
+    var profile = result.data;
+    var name = document.getElementById('safety-contact-name');
+    var phone = document.getElementById('safety-contact-phone');
+    var threshold = document.getElementById('safety-low-threshold');
+    var autoNotify = document.getElementById('safety-auto-notify');
+
+    if (name) name.value = profile.emergency_contact_name || '';
+    if (phone) phone.value = profile.emergency_contact_phone || '';
+    if (threshold) threshold.value = profile.severe_low_threshold || 60;
+    if (autoNotify) autoNotify.value = profile.auto_notify_enabled === 1 ? 'true' : 'false';
+}
+
+async function loadGamification() {
+    var result = await API.get('/api/patient/gamification/progress');
+    if (!result.ok || !result.data) {
+        state.goals = [];
+        state.badges = [];
+    } else {
+        state.goals = Array.isArray(result.data.goals) ? result.data.goals : [];
+        state.badges = Array.isArray(result.data.badges) ? result.data.badges : [];
+    }
+
+    renderGoals();
+    renderBadges();
+}
+
+async function loadPrivacyAndSecurity() {
+    var privacy = await API.get('/api/patient/privacy/settings');
+    if (privacy.ok && privacy.data) {
+        var row = privacy.data;
+        var shareDoctor = document.getElementById('privacy-share-doctor');
+        var shareCaregiver = document.getElementById('privacy-share-caregiver');
+        var research = document.getElementById('privacy-research');
+        var marketing = document.getElementById('privacy-marketing');
+
+        if (shareDoctor) shareDoctor.value = row.share_with_doctor === 1 ? 'true' : 'false';
+        if (shareCaregiver) shareCaregiver.value = row.share_with_caregiver === 1 ? 'true' : 'false';
+        if (research) research.value = row.research_opt_in === 1 ? 'true' : 'false';
+        if (marketing) marketing.value = row.marketing_opt_in === 1 ? 'true' : 'false';
+    }
+
+    var sessions = await API.get('/api/patient/security/sessions');
+    state.sessions = sessions.ok && Array.isArray(sessions.data) ? sessions.data : [];
+    renderSessions();
+
+    var audit = await API.get('/api/patient/audit/access-log');
+    state.auditLog = audit.ok && Array.isArray(audit.data) ? audit.data : [];
+    renderAuditLog();
+}
+
+function initInteractions() {
+    var globalSearch = document.getElementById('global-search');
+    if (globalSearch) {
+        globalSearch.addEventListener('input', function(e) {
+            var value = String(e.target.value || '').toLowerCase();
+            if (document.getElementById('reports').classList.contains('active')) {
+                document.getElementById('report-search').value = value;
+                filterReports();
+            }
+            if (document.getElementById('records').classList.contains('active')) {
+                document.getElementById('record-search').value = value;
+                filterRecords();
+            }
+        });
+    }
+
+    var reportSearch = document.getElementById('report-search');
+    if (reportSearch) reportSearch.addEventListener('input', filterReports);
+    var reportType = document.getElementById('report-type-filter');
+    if (reportType) reportType.addEventListener('change', filterReports);
+
+    var recordSearch = document.getElementById('record-search');
+    if (recordSearch) recordSearch.addEventListener('input', filterRecords);
+    var recordType = document.getElementById('record-type-filter');
+    if (recordType) recordType.addEventListener('change', filterRecords);
+
+    var chartPeriod = document.getElementById('chart-period');
+    if (chartPeriod) {
+        chartPeriod.addEventListener('change', function() {
+            loadTrends().catch(function() {
+                console.error('Failed to reload trend charts.');
+            });
+        });
+    }
+
+    var appointmentDate = document.getElementById('appointment-date');
+    if (appointmentDate) {
+        appointmentDate.min = new Date().toISOString().slice(0, 10);
+    }
+}
+
+async function bootstrap() {
+    if (typeof API === 'undefined' || !requireAuth('patient')) return;
+
+    initNavigation();
+    initModals();
+    initCharts();
+    initInteractions();
+
+    var localUser = API.getUser();
+    if (localUser) {
+        populateProfileView(localUser);
+        populateProfileModal(localUser);
+    }
+
+    try {
+        await Promise.all([
+            loadProfile(),
+            loadDoctors(),
+            loadAppointments(),
+            loadReports(),
+            loadRecords(),
+            loadOverview(),
+            loadNutrition(),
+            loadTrends(),
+            loadMessages(),
+            loadSafety(),
+            loadGamification(),
+            loadPrivacyAndSecurity(),
+        ]);
+        renderExports();
+        renderShares();
+    } catch (err) {
+        console.error('Failed to load patient dashboard:', err);
+    }
+}
+
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.saveProfile = saveProfile;
+window.bookAppointment = bookAppointment;
+window.saveDiet = saveDiet;
+window.addReport = addReport;
+window.addRecord = addRecord;
+window.filterReports = filterReports;
+window.filterRecords = filterRecords;
+window.deleteReport = deleteReport;
+window.scheduleWithDoctor = scheduleWithDoctor;
+window.createMessageThread = createMessageThread;
+window.openThread = openThread;
+window.sendThreadReply = sendThreadReply;
+window.saveSafetyProfile = saveSafetyProfile;
+window.triggerSafetyEvent = triggerSafetyEvent;
+window.createGoal = createGoal;
+window.markGoalCompleted = markGoalCompleted;
+window.createExport = createExport;
+window.createShare = createShare;
+window.revokeShare = revokeShare;
+window.savePrivacySettings = savePrivacySettings;
+window.revokeSession = revokeSession;
+
+bootstrap();
 

@@ -35,15 +35,40 @@ function togglePassword(inputId, button) {
             // Hide error if validation passes
             errorMessage.classList.remove('show');
 
-            // Simulate login (replace with actual backend call)
             var btn = e.target.querySelector('.btn-submit');
             btn.textContent = 'Logging in...';
             btn.disabled = true;
 
-            setTimeout(function() {
-                // Replace this with actual API call
-                alert('Login successful! (Demo - connect to your backend)');
+            fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: password })
+            })
+            .then(function(response) { return response.json().then(function(data) { return { ok: response.ok, data: data }; }); })
+            .then(function(result) {
+                if (!result.ok) {
+                    errorText.textContent = result.data.error || 'Login failed.';
+                    errorMessage.classList.add('show');
+                    btn.innerHTML = 'Log In <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>';
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Store token and user info
+                localStorage.setItem('token', result.data.token);
+                localStorage.setItem('user', JSON.stringify(result.data.user));
+
+                // Redirect based on role
+                if (result.data.user.role === 'doctor') {
+                    window.location.href = '/home/doctor/doctor-dashboard.html';
+                } else {
+                    window.location.href = '/home/patient/patient.html';
+                }
+            })
+            .catch(function() {
+                errorText.textContent = 'Network error. Please try again.';
+                errorMessage.classList.add('show');
                 btn.innerHTML = 'Log In <svg viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>';
                 btn.disabled = false;
-            }, 1500);
+            });
         }

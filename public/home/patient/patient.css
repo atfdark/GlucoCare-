@@ -1169,3 +1169,92 @@
         .metric-progress-bar.success { background: var(--success); }
         .metric-progress-bar.warning { background: var(--warning); }
         .metric-progress-bar.danger { background: var(--danger); }
+
+        .empty-state {
+            padding: 16px;
+            border: 1px dashed var(--gray-300);
+            border-radius: 10px;
+            color: var(--gray-500);
+            text-align: center;
+            background: var(--gray-50);
+        }
+
+        .stack-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .stack-item {
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 14px 16px;
+            background: var(--white);
+        }
+
+        .stack-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .stack-item-title {
+            font-weight: 700;
+            color: var(--deep-blue);
+        }
+
+        .stack-item-meta {
+            color: var(--gray-500);
+            font-size: 13px;
+        }
+
+        .stack-item-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .message-log {
+            max-height: 340px;
+            overflow-y: auto;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 12px;
+            background: var(--gray-50);
+            display: grid;
+            gap: 10px;
+        }
+
+        .message-bubble {
+            max-width: 85%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            border: 1px solid var(--gray-200);
+            background: var(--white);
+        }
+
+        .message-bubble.patient {
+            margin-left: auto;
+            border-color: rgba(13, 148, 136, 0.35);
+            background: rgba(13, 148, 136, 0.08);
+        }
+
+        .message-bubble.doctor {
+            margin-right: auto;
+        }
+
+        .message-bubble-meta {
+            color: var(--gray-500);
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .muted-note {
+            color: var(--gray-500);
+            font-size: 13px;
+            margin-top: 10px;
+        }

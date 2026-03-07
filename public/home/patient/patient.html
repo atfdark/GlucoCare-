@@ -76,6 +76,30 @@
                         Personal Data
                     </a>
                 </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Digital Care</div>
+                    <a class="nav-item" data-section="messages">
+                        <i class="fas fa-comments"></i>
+                        Messages
+                    </a>
+                    <a class="nav-item" data-section="safety">
+                        <i class="fas fa-shield-heart"></i>
+                        Safety
+                    </a>
+                    <a class="nav-item" data-section="gamification">
+                        <i class="fas fa-trophy"></i>
+                        Goals & Rewards
+                    </a>
+                    <a class="nav-item" data-section="sharing">
+                        <i class="fas fa-share-nodes"></i>
+                        Data Sharing
+                    </a>
+                    <a class="nav-item" data-section="privacy">
+                        <i class="fas fa-user-shield"></i>
+                        Privacy & Security
+                    </a>
+                </div>
             </nav>
         </aside>
 
@@ -710,6 +734,281 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Messages Section -->
+            <section id="messages" class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-comments"></i>
+                        Care Team Messages
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Doctor</label>
+                            <select id="new-thread-doctor" class="form-select"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Subject</label>
+                            <input id="new-thread-subject" class="form-input" type="text" placeholder="Topic of your message">
+                        </div>
+                        <div class="form-group full-width">
+                            <label class="form-label">Message</label>
+                            <textarea id="new-thread-body" class="form-textarea" placeholder="Write your first message..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-primary" onclick="createMessageThread()">Start Thread</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Threads</h3>
+                    <div id="message-threads-list" class="stack-list">
+                        <div class="empty-state">No threads yet.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Conversation</h3>
+                    <div id="thread-messages" class="message-log">
+                        <div class="empty-state">Select a thread to view messages.</div>
+                    </div>
+                    <div style="display:flex; gap:12px; margin-top:16px;">
+                        <input id="thread-reply-body" class="form-input" type="text" placeholder="Write a reply...">
+                        <button class="btn btn-primary" onclick="sendThreadReply()">Send</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Safety Section -->
+            <section id="safety" class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-shield-heart"></i>
+                        Emergency & Safety
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Emergency Contact Name</label>
+                            <input id="safety-contact-name" class="form-input" type="text">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Emergency Contact Phone</label>
+                            <input id="safety-contact-phone" class="form-input" type="text">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Severe Low Threshold (mg/dL)</label>
+                            <input id="safety-low-threshold" class="form-input" type="number" min="40" max="120">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Auto Notify</label>
+                            <select id="safety-auto-notify" class="form-select">
+                                <option value="true">Enabled</option>
+                                <option value="false">Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-primary" onclick="saveSafetyProfile()">Save Safety Profile</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Manual Safety Trigger</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Event Type</label>
+                            <select id="safety-event-type" class="form-select">
+                                <option value="severe_hypoglycemia">Severe Hypoglycemia</option>
+                                <option value="hyperglycemia">Hyperglycemia</option>
+                                <option value="fall">Fall / Injury</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Severity</label>
+                            <select id="safety-event-severity" class="form-select">
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-outline" onclick="triggerSafetyEvent()">Trigger Event</button>
+                    </div>
+                    <div id="safety-event-result" class="muted-note"></div>
+                </div>
+            </section>
+
+            <!-- Gamification Section -->
+            <section id="gamification" class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-trophy"></i>
+                        Goals & Rewards
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Goal Type</label>
+                            <select id="goal-type" class="form-select">
+                                <option value="glucose_checks">Daily Glucose Checks</option>
+                                <option value="steps">Daily Steps</option>
+                                <option value="medication_adherence">Medication Adherence</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Value</label>
+                            <input id="goal-target" class="form-input" type="number" min="1" step="1">
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-primary" onclick="createGoal()">Create Goal</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Current Goals</h3>
+                    <div id="goals-list" class="stack-list">
+                        <div class="empty-state">No goals yet.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Badges</h3>
+                    <div id="badges-list" class="stack-list">
+                        <div class="empty-state">No badges earned yet.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Sharing Section -->
+            <section id="sharing" class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-share-nodes"></i>
+                        Data Export & Sharing
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Export Format</label>
+                            <select id="export-format" class="form-select">
+                                <option value="PDF">PDF</option>
+                                <option value="CSV">CSV</option>
+                                <option value="JSON">JSON</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Scope</label>
+                            <select id="export-scope" class="form-select">
+                                <option value="summary">Summary</option>
+                                <option value="full">Full Data</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-primary" onclick="createExport()">Create Export</button>
+                    </div>
+                    <div id="exports-list" class="stack-list" style="margin-top: 16px;">
+                        <div class="empty-state">No exports created in this session.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Create Share Link</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Target Type</label>
+                            <select id="share-target-type" class="form-select">
+                                <option value="doctor">Doctor</option>
+                                <option value="caregiver">Caregiver</option>
+                                <option value="link">Secure Link</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Target Value</label>
+                            <input id="share-target-value" class="form-input" type="text" placeholder="Doctor email / caregiver / recipient">
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-outline" onclick="createShare()">Create Share</button>
+                    </div>
+                    <div id="shares-list" class="stack-list" style="margin-top: 16px;">
+                        <div class="empty-state">No shares created in this session.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Security Section -->
+            <section id="privacy" class="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-user-shield"></i>
+                        Privacy & Security
+                    </h2>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Privacy Settings</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Share with Doctor</label>
+                            <select id="privacy-share-doctor" class="form-select">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Share with Caregiver</label>
+                            <select id="privacy-share-caregiver" class="form-select">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Research Opt-in</label>
+                            <select id="privacy-research" class="form-select">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Marketing Opt-in</label>
+                            <select id="privacy-marketing" class="form-select">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="margin-top: 0;">
+                        <button class="btn btn-primary" onclick="savePrivacySettings()">Save Privacy Settings</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Active Sessions</h3>
+                    <div id="sessions-list" class="stack-list">
+                        <div class="empty-state">No sessions found.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title" style="margin-bottom: 16px;">Access Audit Log</h3>
+                    <div id="audit-log-list" class="stack-list">
+                        <div class="empty-state">No audit entries available.</div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -944,6 +1243,7 @@
         </div>
     </div>
 
+    <script src="/js/api.js"></script>
     <script src="./patient.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth, requireRole } = require('../middleware/auth');
+const { sanitize, isValidDate, isValidTime, isPositiveInt, isOneOf } = require('../middleware/validate');
 const { getDb } = require('../database');
 const User = require('../models/User');
 const GlucoseReading = require('../models/GlucoseReading');
@@ -148,13 +149,21 @@ router.put('/appointments/:id', async (req, res) => {
 router.post('/appointments', async (req, res) => {
     try {
         const patientId = Number(req.body.patient);
-        const { date, time, reason } = req.body;
+        const date = sanitize(req.body.date || '');
+        const time = sanitize(req.body.time || '');
+        const reason = sanitize(req.body.reason || '');
 
         if (!Number.isInteger(patientId) || patientId <= 0) {
             return res.status(400).json({ error: 'A valid patient id is required.' });
         }
         if (!date || !time) {
             return res.status(400).json({ error: 'Date and time are required.' });
+        }
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
+        }
+        if (!isValidTime(time)) {
+            return res.status(400).json({ error: 'Time must be HH:MM (24-hour).' });
         }
 
         const assigned = User.isPatientAssignedToDoctor(patientId, req.user._id);
@@ -180,13 +189,22 @@ router.post('/appointments', async (req, res) => {
 router.post('/reports', async (req, res) => {
     try {
         const patientId = Number(req.body.patient);
-        const { reportName, type, date, status, notes } = req.body;
+        const reportName = sanitize(req.body.reportName || '');
+        const type = sanitize(req.body.type || '');
+        const date = sanitize(req.body.date || '');
+        const { status, notes } = req.body;
 
         if (!Number.isInteger(patientId) || patientId <= 0) {
             return res.status(400).json({ error: 'A valid patient id is required.' });
         }
         if (!reportName || !type || !date) {
             return res.status(400).json({ error: 'Report name, type, and date are required.' });
+        }
+        if (!isOneOf(type, ['Lab Report', 'Imaging', 'Clinical Note', 'Diabetes Report'])) {
+            return res.status(400).json({ error: 'Invalid report type.' });
+        }
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
         }
 
         const assigned = User.isPatientAssignedToDoctor(patientId, req.user._id);
@@ -200,8 +218,8 @@ router.post('/reports', async (req, res) => {
             type,
             date,
             doctor: req.user._id,
-            status,
-            notes,
+            status: status || 'Pending',
+            notes: sanitize(notes || ''),
         });
 
         res.status(201).json(report);
@@ -214,13 +232,22 @@ router.post('/reports', async (req, res) => {
 router.post('/records', async (req, res) => {
     try {
         const patientId = Number(req.body.patient);
-        const { title, type, date, description, facility } = req.body;
+        const title = sanitize(req.body.title || '');
+        const type = sanitize(req.body.type || '');
+        const date = sanitize(req.body.date || '');
+        const { description, facility } = req.body;
 
         if (!Number.isInteger(patientId) || patientId <= 0) {
             return res.status(400).json({ error: 'A valid patient id is required.' });
         }
         if (!title || !type || !date) {
             return res.status(400).json({ error: 'Title, type, and date are required.' });
+        }
+        if (!isOneOf(type, ['Diagnosis', 'Treatment', 'Surgery', 'Vaccination', 'Other'])) {
+            return res.status(400).json({ error: 'Invalid record type.' });
+        }
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
         }
 
         const assigned = User.isPatientAssignedToDoctor(patientId, req.user._id);
@@ -234,8 +261,8 @@ router.post('/records', async (req, res) => {
             type,
             date,
             doctor: req.user._id,
-            description,
-            facility,
+            description: sanitize(description || ''),
+            facility: sanitize(facility || ''),
         });
 
         res.status(201).json(record);
@@ -432,8 +459,9 @@ router.post('/messages/threads/:id', async (req, res) => {
         const thread = db.prepare('SELECT * FROM message_threads WHERE id = ? AND doctor_id = ?').get(req.params.id, req.user._id);
         if (!thread) return res.status(404).json({ error: 'Thread not found.' });
 
-        const { body } = req.body;
-        if (!body || !body.trim()) return res.status(400).json({ error: 'Message body is required.' });
+        const body = sanitize(req.body.body || '');
+        if (!body.trim()) return res.status(400).json({ error: 'Message body is required.' });
+        if (body.length > 5000) return res.status(400).json({ error: 'Message body must not exceed 5000 characters.' });
 
         const result = db.prepare(`
             INSERT INTO messages (thread_id, sender_id, sender_role, body, attachments_json)

@@ -1,5 +1,6 @@
 const express = require('express');
 const { auth, requireRole } = require('../middleware/auth');
+const { sanitize, isValidDate, isValidTime, isFiniteInRange, isPositiveInt, isOneOf } = require('../middleware/validate');
 const GlucoseReading = require('../models/GlucoseReading');
 const HealthMetric = require('../models/HealthMetric');
 const Report = require('../models/Report');
@@ -124,15 +125,27 @@ router.post('/glucose', async (req, res) => {
     try {
         const { value, type, notes, recordedAt } = req.body;
 
-        if (!value || !type) {
+        if (value === undefined || value === null || !type) {
             return res.status(400).json({ error: 'Value and type are required.' });
+        }
+
+        if (!isFiniteInRange(value, 1, 900)) {
+            return res.status(400).json({ error: 'Glucose value must be between 1 and 900 mg/dL.' });
+        }
+
+        if (!isOneOf(type, ['fasting', 'postprandial', 'random'])) {
+            return res.status(400).json({ error: 'Type must be fasting, postprandial, or random.' });
+        }
+
+        if (recordedAt && !isValidDate(recordedAt)) {
+            return res.status(400).json({ error: 'Invalid date format for recordedAt.' });
         }
 
         const reading = GlucoseReading.create({
             patient: req.user._id,
-            value,
+            value: Number(value),
             type,
-            notes,
+            notes: sanitize(notes || ''),
             recordedAt: recordedAt || undefined,
         });
 
@@ -197,6 +210,10 @@ router.get('/glucose/time-in-range', async (req, res) => {
         const days = resolveRangeDays(req.query.range);
         const low = req.query.low ? Number(req.query.low) : 70;
         const high = req.query.high ? Number(req.query.high) : 180;
+
+        if (!isFiniteInRange(low, 30, 400) || !isFiniteInRange(high, 30, 500) || low >= high) {
+            return res.status(400).json({ error: 'Invalid low/high thresholds.' });
+        }
 
         const readings = GlucoseReading.findByPatient(req.user._id, { days });
         const total = readings.length;
@@ -312,6 +329,22 @@ router.post('/health-metrics', async (req, res) => {
     try {
         const { weight, systolic, diastolic, hba1c, recordedAt } = req.body;
 
+        if (weight !== undefined && !isFiniteInRange(weight, 1, 700)) {
+            return res.status(400).json({ error: 'Weight must be between 1 and 700 kg.' });
+        }
+        if (systolic !== undefined && !isFiniteInRange(systolic, 40, 300)) {
+            return res.status(400).json({ error: 'Systolic BP must be between 40 and 300.' });
+        }
+        if (diastolic !== undefined && !isFiniteInRange(diastolic, 20, 200)) {
+            return res.status(400).json({ error: 'Diastolic BP must be between 20 and 200.' });
+        }
+        if (hba1c !== undefined && !isFiniteInRange(hba1c, 2, 20)) {
+            return res.status(400).json({ error: 'HbA1c must be between 2 and 20%.' });
+        }
+        if (recordedAt && !isValidDate(recordedAt)) {
+            return res.status(400).json({ error: 'Invalid date format for recordedAt.' });
+        }
+
         const metric = HealthMetric.create({
             patient: req.user._id,
             weight,
@@ -343,10 +376,21 @@ router.get('/reports', async (req, res) => {
 // POST /api/patient/reports
 router.post('/reports', async (req, res) => {
     try {
-        const { reportName, type, date, doctor, status, notes } = req.body;
+        const reportName = sanitize(req.body.reportName);
+        const type = sanitize(req.body.type);
+        const date = sanitize(req.body.date);
+        const { doctor, status, notes } = req.body;
 
         if (!reportName || !type || !date) {
             return res.status(400).json({ error: 'Report name, type, and date are required.' });
+        }
+
+        if (!isOneOf(type, ['Lab Report', 'Imaging', 'Clinical Note', 'Diabetes Report'])) {
+            return res.status(400).json({ error: 'Invalid report type.' });
+        }
+
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
         }
 
         const report = Report.create({
@@ -355,8 +399,8 @@ router.post('/reports', async (req, res) => {
             type,
             date,
             doctor,
-            status,
-            notes,
+            status: status || 'Pending',
+            notes: sanitize(notes || ''),
         });
 
         res.status(201).json(report);
@@ -381,10 +425,21 @@ router.get('/records', async (req, res) => {
 // POST /api/patient/records
 router.post('/records', async (req, res) => {
     try {
-        const { title, type, date, doctor, description, facility } = req.body;
+        const title = sanitize(req.body.title);
+        const type = sanitize(req.body.type);
+        const date = sanitize(req.body.date);
+        const { doctor, description, facility } = req.body;
 
         if (!title || !type || !date) {
             return res.status(400).json({ error: 'Title, type, and date are required.' });
+        }
+
+        if (!isOneOf(type, ['Diagnosis', 'Treatment', 'Surgery', 'Vaccination', 'Other'])) {
+            return res.status(400).json({ error: 'Invalid record type.' });
+        }
+
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
         }
 
         const record = MedicalRecord.create({
@@ -393,8 +448,8 @@ router.post('/records', async (req, res) => {
             type,
             date,
             doctor,
-            description,
-            facility,
+            description: sanitize(description || ''),
+            facility: sanitize(facility || ''),
         });
 
         res.status(201).json(record);
@@ -443,12 +498,24 @@ router.post('/appointments', async (req, res) => {
             return res.status(400).json({ error: 'Doctor, date, and time are required.' });
         }
 
+        if (!isPositiveInt(doctor)) {
+            return res.status(400).json({ error: 'Invalid doctor id.' });
+        }
+
+        if (!isValidDate(date)) {
+            return res.status(400).json({ error: 'Invalid date format.' });
+        }
+
+        if (!isValidTime(time)) {
+            return res.status(400).json({ error: 'Time must be HH:MM (24-hour).' });
+        }
+
         const appointment = Appointment.create({
             patient: req.user._id,
-            doctor,
+            doctor: Number(doctor),
             date,
             time,
-            reason,
+            reason: sanitize(reason || ''),
         });
 
         res.status(201).json(appointment);
@@ -886,7 +953,8 @@ router.post('/messages/threads/:id', async (req, res) => {
         if (!thread) return res.status(404).json({ error: 'Thread not found.' });
 
         const { body, attachments } = req.body;
-        if (!body) return res.status(400).json({ error: 'Message body is required.' });
+        if (!body || !sanitize(body)) return res.status(400).json({ error: 'Message body is required.' });
+        if (body.length > 5000) return res.status(400).json({ error: 'Message body is too long (max 5000 chars).' });
 
         const result = db.prepare(`
             INSERT INTO messages (thread_id, sender_id, sender_role, body, attachments_json)

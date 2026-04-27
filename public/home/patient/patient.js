@@ -1151,6 +1151,21 @@ function summarizeExtracted(result) {
     return summary.join(', ');
 }
 
+function getPrimaryNonAverageGlucose(extracted) {
+    var payload = extracted && typeof extracted === 'object' ? extracted : {};
+    var average = toNumberOrNull(payload.averageGlucoseMgDl);
+    var glucoseList = Array.isArray(payload.glucoseReadingsMgDl) ? payload.glucoseReadingsMgDl : [];
+
+    for (var i = 0; i < glucoseList.length; i += 1) {
+        var value = toNumberOrNull(glucoseList[i]);
+        if (!inRange(value, 1, 900)) continue;
+        if (average !== null && Math.abs(value - average) <= 0.5) continue;
+        return value;
+    }
+
+    return null;
+}
+
 function formatConfidencePercent(score) {
     var numeric = toNumberOrNull(score);
     if (numeric === null) return '--';
@@ -1357,12 +1372,9 @@ function renderLatestReportInsight(entry) {
         metrics.push({ label: 'HbA1c', value: Number(hba1c).toFixed(1) + '%' });
     }
 
-    var glucoseList = Array.isArray(extracted.glucoseReadingsMgDl) ? extracted.glucoseReadingsMgDl : [];
-    if (glucoseList.length > 0) {
-        var glucoseVal = toNumberOrNull(glucoseList[0]);
-        if (inRange(glucoseVal, 1, 900)) {
-            metrics.push({ label: 'Glucose', value: Number(glucoseVal).toFixed(0) + ' mg/dL' });
-        }
+    var glucoseVal = getPrimaryNonAverageGlucose(extracted);
+    if (inRange(glucoseVal, 1, 900)) {
+        metrics.push({ label: 'Glucose', value: Number(glucoseVal).toFixed(0) + ' mg/dL' });
     }
 
     var bpList = Array.isArray(extracted.bloodPressure) ? extracted.bloodPressure : [];
@@ -1750,9 +1762,7 @@ function renderReportDetails(report) {
     var isImage = String(fileType).toLowerCase().indexOf('image/') === 0 || fileUrl.indexOf('data:image/') === 0;
     var fileLabel = '--';
     var viewerHtml = '';
-    var primaryGlucose = Array.isArray(extracted.glucoseReadingsMgDl) && extracted.glucoseReadingsMgDl.length > 0
-        ? toNumberOrNull(extracted.glucoseReadingsMgDl[0])
-        : null;
+    var primaryGlucose = getPrimaryNonAverageGlucose(extracted);
     var bpEntry = Array.isArray(extracted.bloodPressure) && extracted.bloodPressure.length > 0
         ? extracted.bloodPressure[0]
         : null;
@@ -4297,9 +4307,16 @@ async function addReport(e) {
                 ingestionTasks.push(API.post('/api/patient/health-metrics', healthPayload, { timeoutMs: 15000 }));
             }
 
-            var glucoseValues = Array.isArray(extractedValues.glucoseReadingsMgDl) ? extractedValues.glucoseReadingsMgDl : [];
-            glucoseValues.slice(0, 8).forEach(function(value, index) {
-                var glucose = toNumberOrNull(value);
+            var avgGlucose = toNumberOrNull(extractedValues.averageGlucoseMgDl);
+            var glucoseValues = (Array.isArray(extractedValues.glucoseReadingsMgDl) ? extractedValues.glucoseReadingsMgDl : [])
+                .map(function(value) { return toNumberOrNull(value); })
+                .filter(function(value) {
+                    if (!inRange(value, 1, 900)) return false;
+                    if (avgGlucose !== null && Math.abs(value - avgGlucose) <= 0.5) return false;
+                    return true;
+                });
+
+            glucoseValues.slice(0, 8).forEach(function(glucose, index) {
                 if (!inRange(glucose, 1, 900)) return;
                 ingestionTasks.push(API.post('/api/patient/glucose', {
                     value: glucose,

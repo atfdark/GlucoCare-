@@ -657,8 +657,9 @@ function extractGlucoseValues(text) {
             const context = text.slice(contextStart, contextEnd).toLowerCase();
 
             let score = 0;
-            if (/average\s*blood\s*glucose|\ba\s*b\s*g\b/.test(context)) score += 4;
-            if (/fasting|fbs|post\s*prandial|ppbs|random|rbs/.test(context)) score += 3;
+            // Keep ABG values available, but prioritize direct fasting/postprandial/random readings.
+            if (/average\s*blood\s*glucose|\ba\s*b\s*g\b/.test(context)) score += 1;
+            if (/fasting|fbs|post\s*prandial|ppbs|random|rbs/.test(context)) score += 4;
             if (/mg\/?\s*d\s*l/.test(context)) score += 2;
             if (/reference\s*range|normal\s*value|borderline|poor\s*control|impaired\s*control|diabetic\s*control|<\s*\d|>\s*\d|\d{2,3}\s*[-–]\s*\d{2,3}/.test(context)) {
                 score -= 4;
@@ -1008,10 +1009,7 @@ function extractProjectDataFromDocument(rawText, metadata) {
     const demographicsFromName = extractPatientDemographicsFromNameLine(text);
     const patientName = extractPatientName(text);
     const averageGlucoseMgDl = extractAverageBloodGlucose(text);
-    let glucoseReadings = extractGlucoseValues(text);
-    if (averageGlucoseMgDl !== null) {
-        glucoseReadings = [averageGlucoseMgDl].concat(glucoseReadings.filter((v) => v !== averageGlucoseMgDl));
-    }
+    const glucoseReadings = extractGlucoseValues(text);
 
     const biomarkers = sanitizeBiomarkers(extractAllBiomarkers(text), text, demographicsFromName);
     const patientSex = biomarkers.patientSex || null;

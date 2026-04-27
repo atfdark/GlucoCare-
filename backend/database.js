@@ -3,6 +3,135 @@ const fs = require('fs');
 const path = require('path');
 
 let _wrapper = null;
+const REPORT_IMPORT_GLUCOSE_NOTE = 'Imported from AI report upload';
+const LEGACY_ABG_FASTING_REPAIR_KEY = '2026-04-26-repair-abg-fasting-import';
+
+function toFiniteNumberOrNull(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const cleaned = String(value).replace(/[^0-9.\-]/g, '');
+    if (!cleaned) return null;
+    const numeric = Number(cleaned);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
+function toDateKey(value) {
+    if (!value) return null;
+    const raw = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+}
+
+function parseReportJsonObject(row) {
+    if (!row || !row.parsed_json) return null;
+    try {
+        const parsed = JSON.parse(row.parsed_json);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function runLegacyAverageGlucoseFastingRepair(db) {
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS system_migrations (
+            migration_key TEXT PRIMARY KEY,
+            applied_at TEXT DEFAULT (datetime('now')),
+            details_json TEXT
+        )
+    `);
+
+    const alreadyApplied = db.prepare('SELECT migration_key FROM system_migrations WHERE migration_key = ?').get(LEGACY_ABG_FASTING_REPAIR_KEY);
+    if (alreadyApplied) return;
+
+    let scannedReports = 0;
+    let updatedFastingRows = 0;
+    let deletedFastingRows = 0;
+
+    const reports = db.prepare(`
+        SELECT id, patient, date, parsed_json
+        FROM reports
+        WHERE parsed_json IS NOT NULL AND TRIM(parsed_json) <> ''
+    `).all();
+
+    reports.forEach((reportRow) => {
+        const parsed = parseReportJsonObject(reportRow);
+        const extracted = parsed && parsed.extracted && typeof parsed.extracted === 'object'
+            ? parsed.extracted
+            : null;
+        if (!extracted) return;
+
+        const avg = toFiniteNumberOrNull(extracted.averageGlucoseMgDl);
+        const values = (Array.isArray(extracted.glucoseReadingsMgDl) ? extracted.glucoseReadingsMgDl : [])
+            .map((item) => toFiniteNumberOrNull(item))
+            .filter((item) => Number.isFinite(item) && item >= 1 && item <= 900);
+
+        if (!Number.isFinite(avg) || values.length === 0) return;
+
+        const nonAverageCandidates = values.filter((value) => Math.abs(value - avg) > 0.5);
+        if (nonAverageCandidates.length === 0) return;
+
+        const targetFasting = nonAverageCandidates[0];
+        const reportDateKey = toDateKey(reportRow.date);
+        if (!reportDateKey) return;
+
+        scannedReports += 1;
+
+        const fastingRows = db.prepare(`
+            SELECT id, value, recordedAt
+            FROM glucose_readings
+            WHERE patient = ?
+              AND type = 'fasting'
+              AND notes = ?
+              AND substr(datetime(recordedAt, '+5 hours', '+30 minutes'), 1, 10) = ?
+            ORDER BY datetime(createdAt) ASC, id ASC
+        `).all(reportRow.patient, REPORT_IMPORT_GLUCOSE_NOTE, reportDateKey);
+
+        if (!fastingRows.length) return;
+
+        const wrongRows = fastingRows.filter((row) => {
+            const value = toFiniteNumberOrNull(row.value);
+            return Number.isFinite(value) && Math.abs(value - avg) <= 0.75;
+        });
+        if (!wrongRows.length) return;
+
+        const hasTargetAlready = fastingRows.some((row) => {
+            const value = toFiniteNumberOrNull(row.value);
+            return Number.isFinite(value) && Math.abs(value - targetFasting) <= 0.75;
+        });
+
+        if (hasTargetAlready) {
+            wrongRows.forEach((row) => {
+                deletedFastingRows += db.prepare('DELETE FROM glucose_readings WHERE id = ?').run(row.id).changes;
+            });
+            return;
+        }
+
+        const firstWrong = wrongRows[0];
+        updatedFastingRows += db.prepare(`
+            UPDATE glucose_readings
+            SET value = ?, updatedAt = datetime('now')
+            WHERE id = ?
+        `).run(Number(targetFasting.toFixed(0)), firstWrong.id).changes;
+
+        wrongRows.slice(1).forEach((row) => {
+            deletedFastingRows += db.prepare('DELETE FROM glucose_readings WHERE id = ?').run(row.id).changes;
+        });
+    });
+
+    db.prepare(`
+        INSERT INTO system_migrations (migration_key, details_json)
+        VALUES (?, ?)
+    `).run(
+        LEGACY_ABG_FASTING_REPAIR_KEY,
+        JSON.stringify({
+            scannedReports,
+            updatedFastingRows,
+            deletedFastingRows,
+        }),
+    );
+}
 
 function parseLegacyReportNotes(notesValue) {
     const text = String(notesValue || '').trim();
@@ -712,6 +841,8 @@ async function initDatabase() {
     _wrapper.exec(`CREATE INDEX IF NOT EXISTS idx_shares_patient ON data_shares(patient_id)`);
     _wrapper.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id)`);
     _wrapper.exec(`CREATE INDEX IF NOT EXISTS idx_audit_user ON access_audit_logs(user_id)`);
+
+    runLegacyAverageGlucoseFastingRepair(_wrapper);
 
     return _wrapper;
 }
